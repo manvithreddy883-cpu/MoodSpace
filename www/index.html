@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>MoodSpace</title>
+  <style>
+    :root {
+      --primary: #B388FF;
+      --secondary: #FF80AB;
+      --text: #2A2438;
+      --muted: #5E5670;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      min-height: 100vh;
+      overflow-x: hidden;
+      background: linear-gradient(135deg, #FDFBFF 0%, #F3E8FF 50%, #FFEBF3 100%);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      transition: background 1.2s ease;
+      position: relative;
+    }
+
+    #weatherCanvas {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .screen {
+      position: relative;
+      z-index: 10;
+      width: 100%;
+      max-width: 420px;
+      background: rgba(255, 255, 255, 0.42);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border-radius: 36px;
+      padding: 36px 26px;
+      box-shadow: 0 24px 60px rgba(31, 26, 46, 0.16), inset 0 1px 2px rgba(255, 255, 255, 0.8);
+      border: 1.5px solid rgba(255, 255, 255, 0.65);
+      text-align: center;
+      animation: fadeInUp 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(24px) scale(0.97); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @keyframes floatBounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+
+    .weather-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.6);
+      backdrop-filter: blur(10px);
+      color: #4A148C;
+      font-size: 0.78rem;
+      font-weight: 700;
+      padding: 7px 16px;
+      border-radius: 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      border: 1px solid rgba(255, 255, 255, 0.8);
+    }
+
+    .hero-icon {
+      font-size: 4.8rem;
+      margin-bottom: 12px;
+      display: inline-block;
+      animation: floatBounce 3s ease-in-out infinite;
+      filter: drop-shadow(0 6px 12px rgba(0,0,0,0.1));
+    }
+
+    h1 {
+      font-size: 1.85rem;
+      font-weight: 800;
+      margin-bottom: 10px;
+      background: linear-gradient(135deg, #6A1B9A, #AD1457);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    p.sub {
+      color: var(--muted);
+      font-size: 0.96rem;
+      line-height: 1.5;
+      margin-bottom: 26px;
+      font-weight: 500;
+    }
+
+    .btn {
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: #fff;
+      border: none;
+      border-radius: 20px;
+      padding: 16px 24px;
+      width: 100%;
+      font-weight: 700;
+      font-size: 1.05rem;
+      cursor: pointer;
+      box-shadow: 0 10px 25px rgba(255, 128, 171, 0.4);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .btn:active {
+      transform: scale(0.96);
+    }
+
+    .btn-outline {
+      background: rgba(255, 255, 255, 0.5);
+      backdrop-filter: blur(10px);
+      color: #6A1B9A;
+      box-shadow: none;
+      margin-top: 12px;
+      font-size: 0.92rem;
+      padding: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.8);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin: 18px 0;
+    }
+
+    .mood-btn {
+      background: rgba(255, 255, 255, 0.6);
+      backdrop-filter: blur(10px);
+      border: 2px solid rgba(255, 255, 255, 0.8);
+      border-radius: 16px;
+      padding: 12px 4px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.22s ease;
+    }
+
+    .mood-btn .emoji {
+      font-size: 1.9rem;
+      display: block;
+      transition: transform 0.2s;
+    }
+
+    .mood-btn .label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      margin-top: 5px;
+      color: var(--text);
+    }
+
+    .mood-btn.selected {
+      border-color: var(--secondary);
+      background: rgba(255, 240, 246, 0.85);
+      transform: translateY(-4px);
+      box-shadow: 0 8px 18px rgba(255, 128, 171, 0.25);
+    }
+
+    .mood-btn.selected .emoji {
+      transform: scale(1.2);
+    }
+
+    textarea, input[type="text"] {
+      width: 100%;
+      padding: 14px;
+      border-radius: 16px;
+      border: 1.5px solid rgba(255, 255, 255, 0.8);
+      background: rgba(255, 255, 255, 0.7);
+      backdrop-filter: blur(10px);
+      color: var(--text);
+      margin-bottom: 12px;
+      font-size: 0.94rem;
+      outline: none;
+      transition: border 0.2s;
+    }
+
+    textarea:focus, input[type="text"]:focus {
+      border-color: var(--primary);
+    }
+
+    .fullscreen-msg {
+      position: fixed;
+      inset: 0;
+      z-index: 999;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 28px;
+      text-align: center;
+      color: #fff;
+      transition: background 0.8s ease;
+      animation: popScreen 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes popScreen {
+      from { opacity: 0; transform: scale(0.9); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .theme-love { background: linear-gradient(135deg, #FF6B9D 0%, #FF8E53 100%); }
+    .theme-happy { background: linear-gradient(135deg, #F6D365 0%, #FDA085 100%); }
+    .theme-calm { background: linear-gradient(135deg, #4FACFE 0%, #8E54E9 100%); }
+    .theme-night { background: linear-gradient(135deg, #1E1344 0%, #4A2574 100%); }
+    .theme-default { background: linear-gradient(135deg, #A18CD1 0%, #FBC2EB 100%); }
+
+    .msg-glass-box {
+      background: rgba(255, 255, 255, 0.22);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1.5px solid rgba(255, 255, 255, 0.45);
+      border-radius: 32px;
+      padding: 40px 28px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+    }
+
+    .msg-text-big {
+      font-size: 1.6rem;
+      font-weight: 800;
+      line-height: 1.45;
+      margin: 24px 0 18px;
+      color: #fff;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.15);
+    }
+
+    .close-popup-btn {
+      margin-top: 20px;
+      background: #ffffff;
+      border: none;
+      color: #2A2438;
+      padding: 14px 32px;
+      border-radius: 24px;
+      font-weight: 800;
+      font-size: 1rem;
+      cursor: pointer;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+      transition: transform 0.2s;
+    }
+
+    .close-popup-btn:active {
+      transform: scale(0.95);
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="weatherCanvas"></canvas>
+
+  <!-- STEP 1: INSTANT WELCOME SCREEN -->
+  <div id="screen-welcome" class="screen">
+    <div id="weatherBadge" class="weather-pill">🌸 Warm Vibes Today</div>
+    <div id="wishIcon" class="hero-icon">☀️</div>
+    <h1 id="wishTitle">Good Morning!</h1>
+    <p id="wishSub" class="sub">Sending you warm vibes today. Ready to check in and share how you're feeling?</p>
+    <button class="btn" onclick="goToMoodScreen()">Tap to Enter 🌸</button>
+  </div>
+
+  <!-- STEP 2: MOOD CHECK-IN SCREEN -->
+  <div id="screen-mood" class="screen" style="display: none;">
+    <h1 style="font-size: 1.5rem;">How is your mood? ✨</h1>
+    <p class="sub" style="margin-bottom: 12px;">Pick an emoji that matches your vibe right now</p>
+
+    <div class="grid" id="moodGrid"></div>
+
+    <input type="text" id="customEmojiInput" placeholder="Or type custom emoji + mood (e.g. 🥳 Celebrating)">
+    <textarea id="noteInput" rows="3" placeholder="Tell me a little about how you feel (optional)..."></textarea>
+
+    <button class="btn" id="saveMoodBtn">Share My Mood 💖</button>
+  </div>
+
+  <!-- STEP 3: THANK YOU CELEBRATION SCREEN -->
+  <div id="screen-thanks" class="screen" style="display: none;">
+    <div id="thanksEmoji" class="hero-icon">🥰</div>
+    <h1>Thank You! 🌸</h1>
+    <p id="thanksText" class="sub">Your mood has been shared! Take care of yourself and have the sweetest day ahead.</p>
+
+    <button class="btn" onclick="goToMoodScreen()">Update My Mood Again ✏️</button>
+    <button class="btn btn-outline" id="openLastMsgBtn" style="display: none;" onclick="reopenAdminMessage()">💌 View Uplifting Note Again</button>
+  </div>
+
+  <!-- FULL SCREEN UPLIFTING POPUP -->
+  <div id="fullscreenMsgOverlay" class="fullscreen-msg theme-love">
+    <div class="msg-glass-box">
+      <div id="popupThemeEmoji" class="hero-icon" style="font-size: 4.5rem; margin-bottom: 8px;">💌</div>
+      <div style="font-size: 0.78rem; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; opacity: 0.9;">
+        A Little Reminder For You ✨
+      </div>
+      <div id="popupMsgText" class="msg-text-big">Hope you're having an amazing day!</div>
+      <div id="popupMsgTime" style="font-size: 0.78rem; opacity: 0.85;">Just now</div>
+
+      <button class="close-popup-btn" onclick="closeAdminPopup()">Thank You 💖</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
+    import { getFirestore, doc, setDoc, collection, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBCTg4jcn_olVzgG1KUO0jVSKOA3sf2t0Q",
+      authDomain: "moodspace-e5e50.firebaseapp.com",
+      projectId: "moodspace-e5e50",
+      storageBucket: "moodspace-e5e50.firebasestorage.app",
+      messagingSenderId: "705704882387",
+      appId: "1:705704882387:web:697f9db5d0bbae495d6426"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const MOODS = [
+      {e:"😊",n:"Happy"},{e:"😍",n:"Very Happy"},{e:"🥰",n:"Loved"},{e:"😌",n:"Calm"},
+      {e:"😐",n:"Normal"},{e:"😔",n:"Sad"},{e:"😢",n:"Upset"},{e:"😡",n:"Angry"},
+      {e:"😟",n:"Anxious"},{e:"😴",n:"Tired"},{e:"🤒",n:"Unwell"},{e:"🤩",n:"Excited"}
+    ];
+    let picked = null;
+    let currentWeatherBg = "linear-gradient(135deg, #FDFBFF 0%, #F3E8FF 50%, #FFEBF3 100%)";
+    let weatherEffectType = "clear";
+    let lastSeenMessageId = localStorage.getItem("lastSeenMsgId") || null;
+    let latestAdminMsgData = null;
+
+    // --- CANVAS WEATHER PARTICLE ANIMATION ENGINE ---
+    const canvas = document.getElementById("weatherCanvas");
+    const ctx = canvas.getContext("2d");
+    let particles = [];
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+
+    function initWeatherParticles(type) {
+      weatherEffectType = type;
+      particles = [];
+      const count = type === "rain" ? 70 : type === "clouds" ? 12 : type === "night" ? 50 : 25;
+
+      for (let i = 0; i < count; i++) {
+        particles.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          radius: type === "night" ? Math.random() * 2 + 0.5 : type === "clouds" ? Math.random() * 60 + 30 : Math.random() * 3 + 1,
+          speedX: type === "rain" ? 1 + Math.random() * 1.5 : type === "clouds" ? 0.2 + Math.random() * 0.3 : 0,
+          speedY: type === "rain" ? 8 + Math.random() * 6 : type === "night" ? 0 : type === "clouds" ? 0 : 0.5 + Math.random() * 1,
+          opacity: Math.random() * 0.6 + 0.2,
+          length: type === "rain" ? Math.random() * 15 + 10 : 0
+        });
+      }
+    }
+
+    function animateWeather() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      particles.forEach(p => {
+        ctx.save();
+        ctx.globalAlpha = p.opacity;
+        if (weatherEffectType === "rain") {
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p.x + p.speedX * 2, p.y + p.length);
+          ctx.stroke();
+          p.x += p.speedX;
+          p.y += p.speedY;
+          if (p.y > canvas.height) { p.y = -20; p.x = Math.random() * canvas.width; }
+        } else if (weatherEffectType === "night") {
+          ctx.fillStyle = "#FFFFFF";
+          p.opacity += (Math.random() * 0.04 - 0.02);
+          if (p.opacity < 0.1) p.opacity = 0.1;
+          if (p.opacity > 0.9) p.opacity = 0.9;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (weatherEffectType === "clouds") {
+          ctx.fillStyle = "rgba(255, 255, 255, 0.25)";
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+          ctx.fill();
+          p.x += p.speedX;
+          if (p.x > canvas.width + 100) { p.x = -100; p.y = Math.random() * canvas.height; }
+        } else {
+          ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+          ctx.fill();
+          p.y -= p.speedY;
+          if (p.y < -10) { p.y = canvas.height + 10; p.x = Math.random() * canvas.width; }
+        }
+        ctx.restore();
+      });
+      requestAnimationFrame(animateWeather);
+    }
+    animateWeather();
+    initWeatherParticles("clear");
+
+    // 1. Instant Time Greeting (No Waiting!)
+    function applyInstantGreeting() {
+      const hour = new Date().getHours();
+      const titleEl = document.getElementById("wishTitle");
+      const iconEl = document.getElementById("wishIcon");
+
+      if (hour >= 5 && hour < 12) {
+        titleEl.innerText = "Good Morning!";
+        iconEl.innerText = "☀️";
+        currentWeatherBg = "linear-gradient(135deg, #FFECD2 0%, #FCB69F 50%, #FFD1FF 100%)";
+      } else if (hour >= 12 && hour < 17) {
+        titleEl.innerText = "Good Afternoon!";
+        iconEl.innerText = "🌤️";
+        currentWeatherBg = "linear-gradient(135deg, #F0F8FF 0%, #E6E6FA 50%, #FFEBF3 100%)";
+      } else if (hour >= 17 && hour < 21) {
+        titleEl.innerText = "Good Evening!";
+        iconEl.innerText = "🌆";
+        currentWeatherBg = "linear-gradient(135deg, #F3E7FF 0%, #FFD1DC 50%, #FFE4B5 100%)";
+      } else {
+        titleEl.innerText = "Sweet Night!";
+        iconEl.innerText = "🌙";
+        currentWeatherBg = "linear-gradient(135deg, #1A1B4B 0%, #3A2D78 50%, #6E48AA 100%)";
+        initWeatherParticles("night");
+      }
+      document.body.style.background = currentWeatherBg;
+    }
+
+    // Background fetch for weather (runs quietly without blocking her entry)
+    async function fetchWeatherQuietly() {
+      try {
+        const ipRes = await fetch("https://ipapi.co/json/");
+        const ipData = await ipRes.json();
+        const lat = ipData.latitude || 17.3850;
+        const lon = ipData.longitude || 78.4867;
+
+        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
+        const data = await res.json();
+        const cw = data.current_weather;
+        const temp = Math.round(cw.temperature);
+        const code = cw.weathercode;
+
+        const badgeEl = document.getElementById("weatherBadge");
+        if (code >= 51 && code <= 67 || (code >= 80 && code <= 82)) {
+          badgeEl.innerText = `🌧️ Rainy • ${temp}°C`;
+          currentWeatherBg = "linear-gradient(135deg, #CFD9DF 0%, #A1C4FD 50%, #C2E9FB 100%)";
+          initWeatherParticles("rain");
+        } else if (code >= 1 && code <= 3) {
+          badgeEl.innerText = `⛅ Cloudy • ${temp}°C`;
+          currentWeatherBg = "linear-gradient(135deg, #E0C3FC 0%, #97D9E1 100%)";
+          initWeatherParticles("clouds");
+        } else {
+          badgeEl.innerText = `☀️ Clear Sky • ${temp}°C`;
+        }
+        document.body.style.background = currentWeatherBg;
+      } catch (e) {}
+    }
+
+    // 2. Reset to Welcome Screen Instantly on Open/Close
+    function resetToWelcomeScreen() {
+      document.getElementById("screen-mood").style.display = "none";
+      document.getElementById("screen-thanks").style.display = "none";
+      document.getElementById("screen-welcome").style.display = "block";
+      applyInstantGreeting();
+      fetchWeatherQuietly(); // Runs in background
+    }
+
+    resetToWelcomeScreen();
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") resetToWelcomeScreen();
+    });
+
+    // 3. Render Mood Grid
+    const grid = document.getElementById("moodGrid");
+    MOODS.forEach(m => {
+      const d = document.createElement("div");
+      d.className = "mood-btn";
+      d.innerHTML = `<span class="emoji">${m.e}</span><span class="label">${m.n}</span>`;
+      d.onclick = () => {
+        document.querySelectorAll(".mood-btn").forEach(b => b.classList.remove("selected"));
+        d.classList.add("selected");
+        picked = m;
+      };
+      grid.appendChild(d);
+    });
+
+    window.goToMoodScreen = () => {
+      document.getElementById("screen-welcome").style.display = "none";
+      document.getElementById("screen-thanks").style.display = "none";
+      document.getElementById("screen-mood").style.display = "block";
+    };
+
+    const todayStr = () => {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    };
+
+    // 4. Save Mood
+    document.getElementById("saveMoodBtn").onclick = async () => {
+      const customVal = document.getElementById("customEmojiInput").value.trim();
+      let finalEmoji = picked ? picked.e : "🌸";
+      let finalName = picked ? picked.n : "Custom";
+
+      if (customVal) {
+        const parts = customVal.split(" ");
+        finalEmoji = parts[0];
+        finalName = parts.slice(1).join(" ") || "Custom Mood";
+      } else if (!picked) {
+        return alert("Tap a mood emoji first! 🌸");
+      }
+
+      const note = document.getElementById("noteInput").value.trim();
+
+      await setDoc(doc(db, "daily_moods", todayStr()), {
+        emoji: finalEmoji,
+        moodName: finalName,
+        description: note,
+        date: todayStr(),
+        timestamp: serverTimestamp(),
+        userId: "her"
+      }, { merge: true });
+
+      document.getElementById("screen-mood").style.display = "none";
+      document.getElementById("thanksEmoji").innerText = finalEmoji;
+      document.getElementById("thanksText").innerText = `Thank you for sharing that you're feeling ${finalName} today! 💖`;
+      document.getElementById("screen-thanks").style.display = "block";
+    };
+
+    // 5. Full-Screen Uplifting Message Popup
+    function detectThemeFromMessage(text) {
+      const lower = text.toLowerCase();
+      if (lower.match(/love|heart|miss|hug|kiss|cute|sweet|care|❤️|🥰|😘|💖|💕/)) {
+        return { class: "theme-love", emoji: "❤️", bodyBg: "linear-gradient(135deg, #FFDDE1 0%, #EE9CA7 100%)" };
+      }
+      if (lower.match(/happy|proud|yay|great|awesome|smile|good|best|shine|☀️|😊|🥳|✨/)) {
+        return { class: "theme-happy", emoji: "🌟", bodyBg: "linear-gradient(135deg, #FFF6B7 0%, #F6416C 100%)" };
+      }
+      if (lower.match(/night|sleep|rest|dream|bed|moon|tired|🌙|😴/)) {
+        return { class: "theme-night", emoji: "🌙", bodyBg: "linear-gradient(135deg, #1E1344 0%, #4A2574 100%)" };
+      }
+      if (lower.match(/calm|relax|peace|breathe|okay|fine|water|😌|🌿/)) {
+        return { class: "theme-calm", emoji: "🌊", bodyBg: "linear-gradient(135deg, #E0C3FC 0%, #8EC5FC 100%)" };
+      }
+      return { class: "theme-default", emoji: "💌", bodyBg: "linear-gradient(135deg, #FBC2EB 0%, #A6C1EE 100%)" };
+    }
+
+    function showFullScreenMessage(msgData, docId) {
+      const overlay = document.getElementById("fullscreenMsgOverlay");
+      const theme = detectThemeFromMessage(msgData.text);
+
+      overlay.className = `fullscreen-msg ${theme.class}`;
+      document.body.style.background = theme.bodyBg;
+      document.getElementById("popupThemeEmoji").innerText = theme.emoji;
+      document.getElementById("popupMsgText").innerText = msgData.text;
+
+      const t = msgData.createdAt ? new Date(msgData.createdAt.toDate()).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'Just now';
+      document.getElementById("popupMsgTime").innerText = `Sent with care at ${t}`;
+
+      overlay.style.display = "flex";
+      document.getElementById("openLastMsgBtn").style.display = "block";
+
+      if (!msgData.read && docId) {
+        setDoc(doc(db, "messages", docId), { read: true }, { merge: true });
+      }
+    }
+
+    window.closeAdminPopup = () => {
+      document.getElementById("fullscreenMsgOverlay").style.display = "none";
+      document.body.style.background = currentWeatherBg;
+    };
+
+    window.reopenAdminMessage = () => {
+      if (latestAdminMsgData) {
+        showFullScreenMessage(latestAdminMsgData.data, latestAdminMsgData.id);
+      }
+    };
+
+    onSnapshot(query(collection(db, "messages"), orderBy("createdAt", "asc")), snap => {
+      let newestAdminDoc = null;
+      snap.forEach(docSnap => {
+        const m = docSnap.data();
+        if (m.senderRole === "admin") {
+          newestAdminDoc = { id: docSnap.id, data: m };
+        }
+      });
+
+      if (newestAdminDoc) {
+        latestAdminMsgData = newestAdminDoc;
+        document.getElementById("openLastMsgBtn").style.display = "block";
+
+        if (newestAdminDoc.id !== lastSeenMessageId || !newestAdminDoc.data.read) {
+          lastSeenMessageId = newestAdminDoc.id;
+          localStorage.setItem("lastSeenMsgId", newestAdminDoc.id);
+          showFullScreenMessage(newestAdminDoc.data, newestAdminDoc.id);
+        }
+      }
+    });
+  </script>
+</body>
+</html> 
